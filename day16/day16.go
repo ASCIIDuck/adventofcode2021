@@ -18,13 +18,15 @@ type OperatorValue struct {
 type Packet struct {
 	version     int
 	packet_type int
+	length      int
+	length_type int
 	literal     LiteralValue
 	operator    OperatorValue
 }
 
 func (p Packet) String() string {
 	if len(p.operator.values) > 0 {
-		return fmt.Sprintf("%d: %s", p.version, p.operator.values)
+		return fmt.Sprintf("%d(%d,%d): %s", p.version, p.length_type, p.length, p.operator.values)
 	}
 	return fmt.Sprintf("%d: %d", p.version, p.literal.value)
 }
@@ -106,10 +108,11 @@ func read_operator_length(stream string) (int, int, string) {
 	return int(length_type), int(length64), stream
 }
 
-func parse_stream(stream string) ([]Packet, string) {
+func parse_stream(stream string, max int) ([]Packet, string) {
 	values := []Packet{}
 	all_zeros_re := regexp.MustCompile("^0*$")
-	for !all_zeros_re.MatchString(stream) {
+	count := 0
+	for !all_zeros_re.MatchString(stream) && (max == 0 || count < max) {
 		var p Packet
 		p.version, p.packet_type, stream = read_header(stream)
 		switch p.packet_type {
@@ -120,20 +123,20 @@ func parse_stream(stream string) ([]Packet, string) {
 		default:
 			var length_type, length int
 			length_type, length, stream = read_operator_length(stream)
+			p.length = length
+			p.length_type = length_type
 			var values []Packet
 			switch length_type {
 			case 0:
-				values, stream = parse_stream(stream[0:length])
+				values, _ = parse_stream(stream[0:length], 0)
+				stream = stream[length:]
 			case 1:
-				for i := 0; i < length; i++ {
-					var tmp_values []Packet
-					tmp_values, stream = parse_stream(stream)
-					values = append(values, tmp_values...)
-				}
+				values, stream = parse_stream(stream, length)
 			}
 			p.operator = OperatorValue{values}
 		}
 		values = append(values, p)
+		count++
 	}
 
 	return values, stream
@@ -150,6 +153,65 @@ func sum_version(in []Packet) int {
 	return sum
 }
 
+func calculate(in []Packet) int {
+	result := 0
+	for _, p := range in {
+		switch p.packet_type {
+		case 0:
+			for _, sp := range p.operator.values {
+				result += calculate([]Packet{sp})
+			}
+		case 1:
+			result = 1
+			for _, sp := range p.operator.values {
+				result *= calculate([]Packet{sp})
+			}
+		case 2:
+			result = -1
+			for _, sp := range p.operator.values {
+				value := calculate([]Packet{sp})
+				if result == -1 || value < result {
+					result = value
+				}
+			}
+		case 3:
+			for _, sp := range p.operator.values {
+				value := calculate([]Packet{sp})
+				if value > result {
+					result = value
+				}
+			}
+		case 4:
+			result = p.literal.value
+		case 5:
+			valueA := calculate([]Packet{p.operator.values[0]})
+			valueB := calculate([]Packet{p.operator.values[1]})
+			if valueA > valueB {
+				result = 1
+			} else {
+				result = 0
+			}
+		case 6:
+			valueA := calculate([]Packet{p.operator.values[0]})
+			valueB := calculate([]Packet{p.operator.values[1]})
+			if valueA < valueB {
+				result = 1
+			} else {
+				result = 0
+			}
+		case 7:
+			valueA := calculate([]Packet{p.operator.values[0]})
+			valueB := calculate([]Packet{p.operator.values[1]})
+			if valueA == valueB {
+				result = 1
+			} else {
+				result = 0
+			}
+		}
+	}
+	return result
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		panic("Not enough command line arguments\n")
@@ -159,7 +221,7 @@ func main() {
 	stream := hex_to_bin_str(lines[0])
 	fmt.Println(stream)
 
-	packets, stream := parse_stream(stream)
-	fmt.Println(packets)
-	fmt.Printf("Version total %d", sum_version(packets))
+	packets, stream := parse_stream(stream, 0)
+	fmt.Printf("Version total %d\n", sum_version(packets))
+	fmt.Printf("Result %d\n", calculate(packets))
 }
