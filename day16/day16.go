@@ -9,26 +9,27 @@ import (
 	"strings"
 )
 
-type LiteralValue struct {
-	value int
-}
-type OperatorValue struct {
-	values []Packet
-}
 type Packet struct {
 	version     int
 	packet_type int
-	length      int
-	length_type int
-	literal     LiteralValue
-	operator    OperatorValue
+	literal     int
+	sub_packets []Packet
 }
 
 func (p Packet) String() string {
-	if len(p.operator.values) > 0 {
-		return fmt.Sprintf("%d(%d,%d): %s", p.version, p.length_type, p.length, p.operator.values)
+	if len(p.sub_packets) > 0 {
+		operator_str_map := map[int]string{
+			0: "+",
+			1: "+",
+			2: "min",
+			3: "max",
+			5: "<",
+			6: ">",
+			7: "==",
+		}
+		return fmt.Sprintf("(%s: %s)", operator_str_map[p.packet_type], p.sub_packets)
 	}
-	return fmt.Sprintf("%d: %d", p.version, p.literal.value)
+	return fmt.Sprintf("%d", p.literal)
 }
 
 func get_input(file_path string) []string {
@@ -119,12 +120,10 @@ func parse_stream(stream string, max int) ([]Packet, string) {
 		case 4:
 			var value int
 			value, stream = read_literal(stream)
-			p.literal = LiteralValue{value}
+			p.literal = value
 		default:
 			var length_type, length int
 			length_type, length, stream = read_operator_length(stream)
-			p.length = length
-			p.length_type = length_type
 			var values []Packet
 			switch length_type {
 			case 0:
@@ -133,7 +132,7 @@ func parse_stream(stream string, max int) ([]Packet, string) {
 			case 1:
 				values, stream = parse_stream(stream, length)
 			}
-			p.operator = OperatorValue{values}
+			p.sub_packets = values
 		}
 		values = append(values, p)
 		count++
@@ -146,67 +145,65 @@ func sum_version(in []Packet) int {
 	sum := 0
 	for _, p := range in {
 		sum += p.version
-		if len(p.operator.values) > 0 {
-			sum += sum_version(p.operator.values)
+		if len(p.sub_packets) > 0 {
+			sum += sum_version(p.sub_packets)
 		}
 	}
 	return sum
 }
 
-func calculate(in []Packet) int {
+func calculate(p Packet) int {
 	result := 0
-	for _, p := range in {
-		switch p.packet_type {
-		case 0:
-			for _, sp := range p.operator.values {
-				result += calculate([]Packet{sp})
+	switch p.packet_type {
+	case 0:
+		for _, sp := range p.sub_packets {
+			result += calculate(sp)
+		}
+	case 1:
+		result = 1
+		for _, sp := range p.sub_packets {
+			result *= calculate(sp)
+		}
+	case 2:
+		result = -1
+		for _, sp := range p.sub_packets {
+			value := calculate(sp)
+			if result == -1 || value < result {
+				result = value
 			}
-		case 1:
+		}
+	case 3:
+		for _, sp := range p.sub_packets {
+			value := calculate(sp)
+			if value > result {
+				result = value
+			}
+		}
+	case 4:
+		result = p.literal
+	case 5:
+		valueA := calculate(p.sub_packets[0])
+		valueB := calculate(p.sub_packets[1])
+		if valueA > valueB {
 			result = 1
-			for _, sp := range p.operator.values {
-				result *= calculate([]Packet{sp})
-			}
-		case 2:
-			result = -1
-			for _, sp := range p.operator.values {
-				value := calculate([]Packet{sp})
-				if result == -1 || value < result {
-					result = value
-				}
-			}
-		case 3:
-			for _, sp := range p.operator.values {
-				value := calculate([]Packet{sp})
-				if value > result {
-					result = value
-				}
-			}
-		case 4:
-			result = p.literal.value
-		case 5:
-			valueA := calculate([]Packet{p.operator.values[0]})
-			valueB := calculate([]Packet{p.operator.values[1]})
-			if valueA > valueB {
-				result = 1
-			} else {
-				result = 0
-			}
-		case 6:
-			valueA := calculate([]Packet{p.operator.values[0]})
-			valueB := calculate([]Packet{p.operator.values[1]})
-			if valueA < valueB {
-				result = 1
-			} else {
-				result = 0
-			}
-		case 7:
-			valueA := calculate([]Packet{p.operator.values[0]})
-			valueB := calculate([]Packet{p.operator.values[1]})
-			if valueA == valueB {
-				result = 1
-			} else {
-				result = 0
-			}
+		} else {
+			result = 0
+		}
+	case 6:
+		valueA := calculate(p.sub_packets[0])
+		valueB := calculate(p.sub_packets[1])
+		if valueA < valueB {
+			result = 1
+		} else {
+			result = 0
+		}
+	case 7:
+		valueA := calculate(p.sub_packets[0])
+		valueB := calculate(p.sub_packets[1])
+		if valueA == valueB {
+			result = 1
+		} else {
+			result = 0
 		}
 	}
 	return result
@@ -222,6 +219,7 @@ func main() {
 	fmt.Println(stream)
 
 	packets, stream := parse_stream(stream, 0)
+	fmt.Println(packets)
 	fmt.Printf("Version total %d\n", sum_version(packets))
-	fmt.Printf("Result %d\n", calculate(packets))
+	fmt.Printf("Result %d\n", calculate(packets[0]))
 }
