@@ -1,9 +1,9 @@
-use std::collections::{VecDeque, HashMap};
+use std::collections::{HashMap, VecDeque};
 use util::read_input;
 
 struct Window {
     characters: VecDeque<char>,
-    window_width: usize
+    window_width: usize,
 }
 
 impl Window {
@@ -15,9 +15,19 @@ impl Window {
     }
 
     fn is_start(&self) -> bool {
-        return self.characters.len() >= self.window_width && self.characters.iter()
-          .fold(HashMap::<char, u32>::new(), |mut acc:HashMap<char, u32>, c: &char| {*acc.entry(*c).or_insert(0)+=1; acc} )
-          .into_values().fold(true, |acc, n| (n==1) && acc);
+        return self.characters.len() >= self.window_width
+            && self
+                .characters
+                .iter()
+                .fold(
+                    HashMap::<char, u32>::new(),
+                    |mut acc: HashMap<char, u32>, c: &char| {
+                        *acc.entry(*c).or_insert(0) += 1;
+                        acc
+                    },
+                )
+                .into_values()
+                .fold(true, |acc, n| (n == 1) && acc);
     }
 }
 fn main() {
@@ -28,8 +38,11 @@ fn main() {
     println!("Part 2: {}", part2_res);
 }
 fn find_start(input: &Vec<char>, window_width: usize) -> usize {
-    let mut w: Window = Window{characters: VecDeque::<char>::new(), window_width: window_width};
-    let mut result:usize  = 0;
+    let mut w: Window = Window {
+        characters: VecDeque::<char>::new(),
+        window_width: window_width,
+    };
+    let mut result: usize = 0;
     for i in 0..input.len() {
         w.add_char(input[i]);
         if w.is_start() {
@@ -37,5 +50,5 @@ fn find_start(input: &Vec<char>, window_width: usize) -> usize {
             break;
         }
     }
-    return result+1;
+    return result + 1;
 }
