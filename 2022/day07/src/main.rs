@@ -23,9 +23,10 @@ impl<T> Node<T> {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 struct File<'a> {
     name: &'a str,
+    file_type: FileType,
     size: u32,
 }
 struct Tree<T> {
@@ -33,7 +34,13 @@ struct Tree<T> {
     root: Option<usize>,
 }
 
-impl<T> Tree<T> {
+#[derive(Copy, Clone, Debug, PartialEq)]
+enum FileType{
+    Directory,
+    File
+}
+
+impl<T: std::fmt::Debug> Tree<T> {
     fn new() -> Tree<T> {
         return Tree {
             nodes: Vec::<Node<T>>::new(),
@@ -111,9 +118,9 @@ impl<T> Tree<T> {
 
 fn main() {
     //let data = read_input("input.txt");
-    let data = read_input("sample.txt");
+    let data = read_input("input.txt");
     let mut filesystem = Tree::<File>::new();
-    let mut cwd = filesystem.add_node(None, File { name: "/", size: 0 });
+    let mut cwd = filesystem.add_node(None, File { name: "/", size: 0, file_type: FileType::Directory });
 
     let lines = data.lines().collect::<Vec<&str>>();
 
@@ -147,7 +154,7 @@ fn main() {
                     filesystem.add_node(
                         Some(cwd),
                         File {
-                            name: parts[1],
+                            name: parts[1], file_type: FileType::Directory,
                             size: 0,
                         },
                     );
@@ -158,7 +165,7 @@ fn main() {
                             let n = filesystem.add_node(
                                 Some(cwd),
                                 File {
-                                    name: parts[1],
+                                    name: parts[1], file_type: FileType::File,
                                     size: file_size,
                                 },
                             );
@@ -182,15 +189,32 @@ fn main() {
     let part1_res = filesystem.recursive_walk_and_find(
         filesystem.root.unwrap(),
         &|file: &File| {
-            if file.size <= 100000 {
+            if file.file_type == FileType::Directory && file.size <= 100000 {
                 return file.size;
             } else {
                 return 0;
             }
         },
-        &|v: &Vec<u32>| {
+        &|v: &Vec<u32>|->u32 {
             return v.iter().sum();
         },
     );
     println!("Part 1 is {}", part1_res);
+    let total_space = 70000000;
+    let needed_space = 30000000;
+    let space_to_delete = filesystem.nodes[filesystem.root.unwrap()].data.size - ( total_space - needed_space);
+    let part2_res = filesystem.recursive_walk_and_find(
+        filesystem.root.unwrap(),
+        &|file: &File| {
+            if file.file_type == FileType::Directory && file.size >= space_to_delete {
+                return file.size;
+            } else {
+                return total_space;
+            }
+        },
+        &|v: &Vec<u32>|->u32 {
+            return *v.iter().min().unwrap();
+        },
+    );
+    println!("Part 2 is {}", part2_res);
 }
