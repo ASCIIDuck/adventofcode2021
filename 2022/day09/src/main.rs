@@ -1,11 +1,17 @@
+use core::fmt;
 use std::ops::{Add, AddAssign};
 
 use util::read_input;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Eq, PartialEq, PartialOrd, Ord)]
 struct XY {
     x: i32,
     y: i32,
+}
+impl fmt::Debug for XY {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({},{})", self.x, self.y)
+    }
 }
 
 impl Add for XY {
@@ -30,11 +36,15 @@ impl XY {
     }
     fn contract(&mut self) -> XY {
         let mut out = XY { x: 0, y: 0 };
-        if self.x.abs() != 0 {
+        if (self.x.abs() > 1 && self.y != 0) || (self.y.abs() > 1 && self.x != 0) {
             out.x += self.x / self.x.abs();
             self.x -= self.x / self.x.abs();
-        }
-        if self.y.abs() != 0 {
+            out.y += self.y / self.y.abs();
+            self.y -= self.y / self.y.abs();
+        } else if self.x.abs() > 1 {
+            out.x += self.x / self.x.abs();
+            self.x -= self.x / self.x.abs();
+        } else if self.y.abs() > 1 {
             out.y += self.y / self.y.abs();
             self.y -= self.y / self.y.abs();
         }
@@ -108,19 +118,18 @@ fn walk_rope(input: String, rope_len: usize) -> i32 {
     let mut rope_vectors = vec![XY { x: 0, y: 0 }; rope_len + 1];
     let mut tail_pos_history = Vec::<XY>::new();
     tail_pos_history.push(rope_vectors[rope_len]);
-    println!("{:?}", rope_vectors);
     for inst in instructions {
         rope_vectors[0] += inst;
         while rope_vectors[0..rope_len]
             .iter()
             .any(|k| k.ends_not_touching())
         {
-            for i in 0..rope_vectors.len() - 1 {
+            for i in 0..rope_len {
                 let shift = rope_vectors[i].contract();
                 rope_vectors[i + 1] += shift;
             }
-            tail_pos_history.push(rope_vectors[rope_len]);
             println!("{:?}", rope_vectors);
+            tail_pos_history.push(rope_vectors[rope_len]);
         }
     }
     let mut uniq_pos = tail_pos_history.clone();
@@ -142,6 +151,7 @@ fn main() {
 mod tests {
     use crate::walk_head;
     use crate::walk_rope;
+    use crate::XY;
     #[test]
     fn test_walk_head() {
         let res = walk_head(
@@ -158,7 +168,7 @@ mod tests {
         assert_eq!(res, 13);
     }
     #[test]
-    fn sample_input() {
+    fn test_walk_rope_1() {
         let res = walk_rope(
             "R 4
         U 4
@@ -174,7 +184,7 @@ mod tests {
         assert_eq!(res, 13);
     }
     #[test]
-    fn sample_input_10() {
+    fn test_walk_rope_10() {
         let res = walk_rope(
             "R 4
         U 4
@@ -188,5 +198,45 @@ mod tests {
             10,
         );
         assert_eq!(res, 1);
+    }
+
+    #[test]
+    fn test_walk_rope_10_sample2() {
+        let res = walk_rope(
+            "R 5
+            U 8
+            L 8
+            D 3
+            R 17
+            D 10
+            L 25
+            U 20
+            "
+            .to_string(),
+            10,
+        );
+        assert_eq!(res, 36);
+    }
+
+    #[test]
+    fn test_ends_touching() {
+        assert_eq!(XY { x: 0, y: 0 }.ends_not_touching(), false);
+        assert_eq!(XY { x: 1, y: 0 }.ends_not_touching(), false);
+        assert_eq!(XY { x: 0, y: 1 }.ends_not_touching(), false);
+        assert_eq!(XY { x: 1, y: 1 }.ends_not_touching(), false);
+        assert_eq!(XY { x: 2, y: 0 }.ends_not_touching(), true);
+        assert_eq!(XY { x: 0, y: 2 }.ends_not_touching(), true);
+        assert_eq!(XY { x: 2, y: 1 }.ends_not_touching(), true);
+        assert_eq!(XY { x: 1, y: 2 }.ends_not_touching(), true);
+        assert_eq!(XY { x: 2, y: 2 }.ends_not_touching(), true);
+        assert_eq!(XY { x: 0, y: 0 }.ends_not_touching(), false);
+        assert_eq!(XY { x: -1, y: 0 }.ends_not_touching(), false);
+        assert_eq!(XY { x: 0, y: -1 }.ends_not_touching(), false);
+        assert_eq!(XY { x: -1, y: -1 }.ends_not_touching(), false);
+        assert_eq!(XY { x: -2, y: 0 }.ends_not_touching(), true);
+        assert_eq!(XY { x: 0, y: -2 }.ends_not_touching(), true);
+        assert_eq!(XY { x: -2, y: -1 }.ends_not_touching(), true);
+        assert_eq!(XY { x: -1, y: -2 }.ends_not_touching(), true);
+        assert_eq!(XY { x: -2, y: -2 }.ends_not_touching(), true);
     }
 }
