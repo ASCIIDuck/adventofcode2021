@@ -10,6 +10,7 @@ struct ElfTree {
     max_left: i32,
     max_up: i32,
     max_down: i32,
+    scenic_score: i32,
 }
 
 impl fmt::Debug for ElfTree {
@@ -26,6 +27,7 @@ impl ElfTree {
             max_left: EDGE_VALUE,
             max_up: EDGE_VALUE,
             max_down: EDGE_VALUE,
+            scenic_score: 0,
         };
     }
 
@@ -38,8 +40,8 @@ impl ElfTree {
     }
 }
 
-fn map_trees(input: String) -> Vec<Vec<ElfTree>> {
-    let mut trees: Vec<Vec<ElfTree>> = input
+fn parse_trees(input: String) -> Vec<Vec<ElfTree>> {
+    let trees: Vec<Vec<ElfTree>> = input
         .lines()
         .map(|line| {
             line.trim()
@@ -48,76 +50,82 @@ fn map_trees(input: String) -> Vec<Vec<ElfTree>> {
                 .collect()
         })
         .collect();
-
     assert_eq!(trees.len(), trees[0].len());
-    let max_dim = trees.len();
-    for i in 0..=max_dim / 2 {
-        let lower = max_dim / 2 - i;
-        let upper = max_dim / 2 + i;
-        // Mark edge of new sub-plot as visible
-        for j in 0..=2 * i {
-            trees[lower][lower + j].max_up = EDGE_VALUE;
-            trees[upper][lower + j].max_down = EDGE_VALUE;
-            trees[lower + j][lower].max_left = EDGE_VALUE;
-            trees[lower + j][upper].max_right = EDGE_VALUE;
-        }
-        for row in lower..=upper {
-            for col in lower..=upper {
-                if row > lower {
-                    if trees[row - 1][col].max_up > trees[row - 1][col].height {
-                        trees[row][col].max_up = trees[row - 1][col].max_up;
-                    } else {
-                        trees[row][col].max_up = trees[row - 1][col].height;
-                    }
-                }
-                if row < upper {
-                    if trees[row + 1][col].max_down > trees[row + 1][col].height {
-                        trees[row][col].max_down = trees[row + 1][col].max_down;
-                    } else {
-                        trees[row][col].max_down = trees[row + 1][col].height;
-                    }
-                }
-                if col > lower {
-                    if trees[row][col - 1].max_left > trees[row][col - 1].height {
-                        trees[row][col].max_left = trees[row][col - 1].max_left;
-                    } else {
-                        trees[row][col].max_left = trees[row][col - 1].height;
-                    }
-                }
-                if col < upper {
-                    if trees[row][col + 1].max_right > trees[row][col + 1].height {
-                        trees[row][col].max_right = trees[row][col + 1].max_right;
-                    } else {
-                        trees[row][col].max_right = trees[row][col + 1].height;
-                    }
-                }
-            }
-        }
-    }
     return trees;
 }
 
+fn mark_visible(trees: &mut Vec<Vec<ElfTree>>) {
+    let max_dim = trees.len();
+    for i in 1..max_dim {
+        for j in 1..max_dim {
+            if trees[i - 1][j].height > trees[i - 1][j].max_up {
+                trees[i][j].max_up = trees[i - 1][j].height;
+            } else {
+                trees[i][j].max_up = trees[i - 1][j].max_up;
+            }
+            if trees[max_dim - i][j].height > trees[max_dim - i][j].max_down {
+                trees[(max_dim - 1) - i][j].max_down = trees[max_dim - i][j].height;
+            } else {
+                trees[(max_dim - 1) - i][j].max_down = trees[max_dim - i][j].max_down;
+            };
+            if trees[i][j - 1].height > trees[i][j - 1].max_left {
+                trees[i][j].max_left = trees[i][j - 1].height;
+            } else {
+                trees[i][j].max_left = trees[i][j - 1].max_left;
+            }
+            if trees[i][max_dim - j].height > trees[i][max_dim - j].max_right {
+                trees[i][(max_dim - 1) - j].max_right = trees[i][max_dim - j].height;
+            } else {
+                trees[i][(max_dim - 1) - j].max_right = trees[i][max_dim - j].max_right;
+            }
+        }
+    }
+}
+
+fn _caclulate_singe_scenic_score(trees: &Vec<Vec<ElfTree>>, row: usize, col: usize) -> i32 {
+    let max_dim = trees.len();
+    let (mut left, mut right, mut up, mut down) = (col, max_dim - col - 1, row, max_dim - row - 1);
+    let cur_height = trees[row][col].height;
+    for i in 1..max_dim {
+        if row > i && i < up && trees[row - i][col].height >= cur_height {
+            up = i;
+        }
+        if row + i < max_dim && i < down && trees[row + i][col].height >= cur_height {
+            down = i;
+        }
+        if col > i && i < left && trees[row][col - i].height >= cur_height {
+            left = i;
+        }
+        if col + i < max_dim && i < right && trees[row][col + i].height >= cur_height {
+            right = i;
+        }
+    }
+    return (left * right * up * down) as i32;
+}
+
+fn calculate_scenic_scores(trees: &mut Vec<Vec<ElfTree>>) {
+    for i in 0..trees.len() {
+        for j in 0..trees.len() {
+            trees[i][j].scenic_score = _caclulate_singe_scenic_score(&trees, i, j);
+        }
+    }
+}
 fn do_work(input: String) {
-    let trees = map_trees(input);
+    let mut trees = parse_trees(input);
+    mark_visible(&mut trees);
+    calculate_scenic_scores(&mut trees);
     let part1_res = trees.iter().fold(0, |acc, line| {
         acc + line
             .iter()
             .fold(0, |acc, t| if t.is_visible() { acc + 1 } else { acc })
     });
-    for line in trees {
-        for t in line {
-            print!(
-                "{}",
-                if t.is_visible() {
-                    t.height.to_string()
-                } else {
-                    ".".to_string()
-                }
-            );
-        }
-        println!("");
-    }
-    println!("Part 1 is {}", part1_res)
+    println!("Part 1 is {}", part1_res);
+    let part2_res = trees
+        .iter()
+        .map(|row| row.iter().map(|t| t.scenic_score).max().unwrap())
+        .max()
+        .unwrap();
+    println!("Part 2 is {}", part2_res);
 }
 fn main() {
     let data = read_input("input.txt");
@@ -130,22 +138,12 @@ mod tests {
 
     #[test]
     fn test_one() {
-        let input = "30373
+        let input = "
+        30373
         25512
         65332
         33549
         35390";
-        do_work(input.to_string());
-    }
-    #[test]
-    fn test_two() {
-        let input = "3037361
-        2551291
-        6589811
-        3373721
-        3561531
-        3451321
-        6531321";
         do_work(input.to_string());
     }
 }
