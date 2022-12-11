@@ -36,17 +36,19 @@ impl XY {
     }
     fn contract(&mut self) -> XY {
         let mut out = XY { x: 0, y: 0 };
-        if (self.x.abs() > 1 && self.y != 0) || (self.y.abs() > 1 && self.x != 0) {
-            out.x += self.x / self.x.abs();
-            self.x -= self.x / self.x.abs();
-            out.y += self.y / self.y.abs();
-            self.y -= self.y / self.y.abs();
-        } else if self.x.abs() > 1 {
-            out.x += self.x / self.x.abs();
-            self.x -= self.x / self.x.abs();
-        } else if self.y.abs() > 1 {
-            out.y += self.y / self.y.abs();
-            self.y -= self.y / self.y.abs();
+        if self.ends_not_touching() {
+            let delta_x: i32 = match self.x.checked_div(self.x.abs()) {
+                Some(res) => res,
+                None => 0,
+            };
+            let delta_y = match self.y.checked_div(self.y.abs()) {
+                Some(res) => res,
+                None => 0,
+            };
+            out.x += delta_x;
+            self.x -= delta_x;
+            out.y += delta_y;
+            self.y -= delta_y;
         }
         return out;
     }
@@ -118,8 +120,10 @@ fn walk_rope(input: String, rope_len: usize) -> i32 {
     let mut rope_vectors = vec![XY { x: 0, y: 0 }; rope_len + 1];
     let mut tail_pos_history = Vec::<XY>::new();
     tail_pos_history.push(rope_vectors[rope_len]);
+    println!("{:?}", rope_vectors);
     for inst in instructions {
         rope_vectors[0] += inst;
+        let mut breaker = 1000;
         while rope_vectors[0..rope_len]
             .iter()
             .any(|k| k.ends_not_touching())
@@ -128,9 +132,13 @@ fn walk_rope(input: String, rope_len: usize) -> i32 {
                 let shift = rope_vectors[i].contract();
                 rope_vectors[i + 1] += shift;
             }
-            println!("{:?}", rope_vectors);
             tail_pos_history.push(rope_vectors[rope_len]);
+            breaker -= 1;
+            if breaker == 0 {
+                break;
+            }
         }
+        println!("{:?}", rope_vectors);
     }
     let mut uniq_pos = tail_pos_history.clone();
     uniq_pos.sort();
@@ -152,6 +160,7 @@ mod tests {
     use crate::walk_head;
     use crate::walk_rope;
     use crate::XY;
+    use util::read_input;
     #[test]
     fn test_walk_head() {
         let res = walk_head(
@@ -210,12 +219,17 @@ mod tests {
             R 17
             D 10
             L 25
-            U 20
-            "
-            .to_string(),
+            U 20"
+                .to_string(),
             10,
         );
         assert_eq!(res, 36);
+    }
+
+    #[test]
+    fn run_input_part1() {
+        let res = walk_rope(read_input("input.txt"), 1);
+        assert_eq!(res, 6354);
     }
 
     #[test]
