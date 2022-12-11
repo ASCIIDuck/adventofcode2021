@@ -120,7 +120,6 @@ fn walk_rope(input: String, rope_len: usize) -> i32 {
     let mut rope_vectors = vec![XY { x: 0, y: 0 }; rope_len + 1];
     let mut tail_pos_history = Vec::<XY>::new();
     tail_pos_history.push(rope_vectors[rope_len]);
-    println!("{:?}", rope_vectors);
     for inst in instructions {
         rope_vectors[0] += inst;
         let mut breaker = 1000;
@@ -138,7 +137,6 @@ fn walk_rope(input: String, rope_len: usize) -> i32 {
                 break;
             }
         }
-        println!("{:?}", rope_vectors);
     }
     let mut uniq_pos = tail_pos_history.clone();
     uniq_pos.sort();
@@ -151,7 +149,7 @@ fn main() {
     let data = read_input("input.txt");
     let part1_res = walk_rope(data.clone(), 1);
     println!("Part 1 answer: {}", part1_res);
-    let part2_res = walk_rope(data.clone(), 10);
+    let part2_res = walk_rope(data.clone(), 9);
     println!("Part 2 answer: {}", part2_res);
 }
 
@@ -221,7 +219,7 @@ mod tests {
             L 25
             U 20"
                 .to_string(),
-            10,
+            9,
         );
         assert_eq!(res, 36);
     }
