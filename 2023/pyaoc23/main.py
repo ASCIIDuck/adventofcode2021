@@ -1,5 +1,6 @@
 import argparse
 import importlib
+import traceback
 
 import requests
 
@@ -16,10 +17,12 @@ def main():
         partA = day_mod.partA(puzzle)
     except Exception as e:
         print(e)
+        print(traceback.format_exc())
     try:
         partB = day_mod.partB(puzzle)
     except Exception as e:
         print(e)
+        print(traceback.format_exc())
     print("Part A: ", partA)
     print("Part B: ", partB)
 
