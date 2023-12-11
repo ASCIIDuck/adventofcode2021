@@ -5,7 +5,7 @@ def transformInput(transformer: callable, args: list = []) -> callable:
     def paramWrapper(decorated_function: callable) -> callable:
         def puzzleParse(puzzle: str) -> int:
             parsed_args = transformer(puzzle, *args)
-            return decorated_function(parsed_args)
+            return decorated_function(*parsed_args)
 
         return puzzleParse
 
