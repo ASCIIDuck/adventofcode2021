@@ -4,7 +4,7 @@ import requests
 def transform_input(transformer: callable, args: list = []) -> callable:
     def param_wrapper(decorated_function: callable) -> callable:
         def puzzle_parse(puzzle: str) -> int:
-            parsed_args = transformer(puzzle, *args)
+            parsed_args = transformer(puzzle.strip(), *args)
             return decorated_function(*parsed_args)
 
         return puzzle_parse
@@ -27,9 +27,14 @@ def get_input(year: int, day: int) -> str:
             return f.read().strip()
     except FileNotFoundError:
         url = "https://adventofcode.com/%d/day/%d/input" % (year, day)
-        sess = requests.Session()
-        resp = sess.get(url, cookies={"session": get_token()})
-        puzzle_input = resp.content.decode()
-        with open(cache_path, "+w") as f:
-            f.write(puzzle_input)
+        try:
+            sess = requests.Session()
+            resp = sess.get(url, cookies={"session": get_token()})
+            resp.raise_for_status()
+            puzzle_input = resp.content.decode()
+            with open(cache_path, "+w") as f:
+                f.write(puzzle_input)
+        except requests.exceptions.HTTPError:
+            print("Failed to fetch input")
+            exit(1)
         return puzzle_input
